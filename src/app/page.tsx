@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from "react";
 import { createClient } from "@sanity/client";
 import Image from "next/image";
+import { Swiper, SwiperSlide } from 'swiper/react';
+import 'swiper/css'; // Correct way to import Swiper styles for newer versions
 
 // Sanity Client Setup
 const sanityClient = createClient({
@@ -16,6 +18,7 @@ interface Product {
   _id: string;
   name: string;
   imageUrl: string;
+  additionalImages: string[]; // For additional product images
   price: number;
   description: string;
   discountPercentage: number;
@@ -28,12 +31,13 @@ interface Product {
 
 const Page = () => {
   const [products, setProducts] = useState<Product[]>([]);
+  const [expandedDescription, setExpandedDescription] = useState<string | null>(null);
 
   // Fetch products asynchronously
   useEffect(() => {
     async function fetchProducts() {
       const query =
-        '*[_type == "product"] {_id, name, "imageUrl": image.asset->url, price, description, discountPercentage, priceWithoutDiscount, rating, ratingCount, tags, sizes}';
+        '*[_type == "product"] {_id, name, "imageUrl": image.asset->url, additionalImages, price, description, discountPercentage, priceWithoutDiscount, rating, ratingCount, tags, sizes}';
       const fetchedProducts = await sanityClient.fetch(query);
       setProducts(fetchedProducts);
     }
@@ -41,9 +45,52 @@ const Page = () => {
     fetchProducts();
   }, []);
 
+  const toggleDescription = (productId: string) => {
+    setExpandedDescription((prev) => (prev === productId ? null : productId));
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-r from-blue-100 to-indigo-200 py-10 px-5">
       <h1 className="text-4xl font-bold text-center text-gray-800 mb-12">Our Exclusive Products</h1>
+      
+      {/* Featured Products Slider */}
+      <Swiper
+        spaceBetween={20}
+        slidesPerView={1}
+        centeredSlides={true}
+        loop={true}
+        autoplay={{ delay: 3000 }} // Auto-loop with 3s interval
+        className="mb-12"
+      >
+        {products.slice(0, 5).map((product) => (
+          <SwiperSlide key={product._id}>
+            <div className="bg-white rounded-lg shadow-xl p-6">
+              <Image
+                src={product.imageUrl}
+                alt={product.name}
+                width={400}
+                height={400}
+                className="w-full h-64 object-cover rounded-t-lg"
+              />
+              <h2 className="text-xl font-semibold text-gray-800 mt-4">{product.name}</h2>
+              <p className="text-gray-600 mt-2">{product.description.slice(0, 100)}...</p>
+              <button
+                onClick={() => toggleDescription(product._id)}
+                className="text-blue-600 hover:underline"
+              >
+                Read More
+              </button>
+
+              {/* Show Full Description if Expanded */}
+              {expandedDescription === product._id && (
+                <p className="mt-2 text-gray-600">{product.description}</p>
+              )}
+            </div>
+          </SwiperSlide>
+        ))}
+      </Swiper>
+
+      {/* All Products Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
         {products.length > 0 ? (
           products.map((product) => (
@@ -51,21 +98,58 @@ const Page = () => {
               key={product._id}
               className="bg-white rounded-lg shadow-xl transform hover:scale-105 transition-transform duration-300 ease-in-out"
             >
-              {product.imageUrl && (
-                <Image
-                  src={product.imageUrl}
-                  alt={product.name}
-                  width={400}
-                  height={400}
-                  className="w-full h-64 object-cover rounded-t-lg"
-                />
-              )}
+              <div className="w-full h-64 bg-gray-200 rounded-t-lg">
+                <Swiper
+                  spaceBetween={10}
+                  slidesPerView={1}
+                  loop={true}
+                  autoplay={{ delay: 3000 }} // Auto-loop with 3s interval
+                  className="w-full h-full"
+                >
+                  {/* Main Image */}
+                  <SwiperSlide>
+                    {product.imageUrl && (
+                      <Image
+                        src={product.imageUrl}
+                        alt={product.name}
+                        width={400}
+                        height={400}
+                        className="w-full h-full object-cover rounded-t-lg"
+                      />
+                    )}
+                  </SwiperSlide>
+                  {/* Additional Images */}
+                  {product.additionalImages && product.additionalImages.map((img, index) => (
+                    <SwiperSlide key={index}>
+                      <Image
+                        src={img}
+                        alt={`${product.name} - ${index}`}
+                        width={400}
+                        height={400}
+                        className="w-full h-full object-cover rounded-t-lg"
+                      />
+                    </SwiperSlide>
+                  ))}
+                </Swiper>
+              </div>
 
               <div className="p-6">
                 <h2 className="text-xl font-semibold text-gray-800 hover:text-blue-600 transition duration-200">
                   {product.name}
                 </h2>
-                <p className="text-gray-600 mt-2">{product.description}</p>
+                <p className="text-gray-600 mt-2">{product.description.slice(0, 100)}...</p>
+                <button
+                  onClick={() => toggleDescription(product._id)}
+                  className="text-blue-600 hover:underline"
+                >
+                  Read More
+                </button>
+
+                {/* Show Full Description if Expanded */}
+                {expandedDescription === product._id && (
+                  <p className="mt-2 text-gray-600">{product.description}</p>
+                )}
+
                 <div className="mt-4 flex items-center justify-between">
                   <span className="text-xl font-bold text-gray-900">
                     ${product.price}
